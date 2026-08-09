@@ -45,6 +45,8 @@ def collect_stats():
 
     disks = []
     for part in psutil.disk_partitions(all=False):
+        if part.fstype == "squashfs" or part.mountpoint.startswith("/snap/"):
+            continue
         try:
             usage = psutil.disk_usage(part.mountpoint)
         except (PermissionError, OSError):
