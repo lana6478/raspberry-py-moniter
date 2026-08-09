@@ -67,6 +67,36 @@ Manage it afterwards with `sudo systemctl stop/start/restart
 raspi-monitor-server.service` and view logs with `journalctl -u
 raspi-monitor-server.service -f`.
 
+## Optional: auto-start the TUI on the Pi's screen at boot
+
+This takes over the Pi's console (tty1) so the dashboard appears
+automatically on boot instead of a login prompt — appliance style. It stops
+the default `getty@tty1` login and runs the TUI there instead, restarting it
+automatically if it ever exits.
+
+On the Pi:
+
+```bash
+cp deploy/raspi-monitor-client.service ~/raspi-monitor-client.service
+# Edit ~/raspi-monitor-client.service first if your username, repo path,
+# or the computer's --host/--port differ from what's in
+# deploy/raspi-monitor-client.service.
+sudo cp ~/raspi-monitor-client.service /etc/systemd/system/raspi-monitor-client.service
+sudo systemctl daemon-reload
+sudo systemctl disable getty@tty1.service
+sudo systemctl enable --now raspi-monitor-client.service
+```
+
+To get a normal login prompt back on tty1 later:
+
+```bash
+sudo systemctl disable --now raspi-monitor-client.service
+sudo systemctl enable --now getty@tty1.service
+```
+
+You can still SSH into the Pi normally regardless of which of the above is
+active — this only affects the physical screen/tty1.
+
 ## Notes
 
 - Traffic between the server and client is plain HTTP with no

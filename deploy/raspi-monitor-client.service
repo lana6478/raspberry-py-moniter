@@ -1,0 +1,23 @@
+[Unit]
+Description=Raspberry Pi monitor TUI (auto-start on tty1)
+After=network-online.target getty@tty1.service
+Wants=network-online.target
+Conflicts=getty@tty1.service
+
+[Service]
+Type=simple
+User=samuel
+WorkingDirectory=%h/raspberry-py-moniter
+ExecStart=%h/raspberry-py-moniter/.venv/bin/python -m client.tui --host 192.168.1.120 --port 8000
+Restart=always
+RestartSec=3
+StandardInput=tty
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+
+[Install]
+WantedBy=multi-user.target
