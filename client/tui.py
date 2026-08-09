@@ -10,7 +10,7 @@ from collections import deque
 
 import requests
 from textual.app import App, ComposeResult
-from textual.widgets import DataTable, Footer, Header, ProgressBar, Sparkline, Static
+from textual.widgets import DataTable, Footer, Header, Sparkline, Static
 
 _CPU_BLOCKS = "▁▂▃▄▅▆▇█"
 
@@ -41,32 +41,64 @@ def _cpu_core_bars(per_cpu):
     return "".join(_CPU_BLOCKS[min(7, int(p / 100 * 8))] for p in per_cpu)
 
 
+def _threshold_color(percent):
+    if percent >= 85:
+        return "bold red"
+    if percent >= 60:
+        return "yellow"
+    return "bright_green"
+
+
+def _ascii_bar(percent, width=18):
+    filled = max(0, min(width, int(round(percent / 100 * width))))
+    return "█" * filled + "░" * (width - filled)
+
+
 class MonitorApp(App):
     CSS = """
-    #status, #host_info, #cpu_label, #cpu_cores, #cpu_history_label,
-    #mem_label, #swap_label, #net_label, #disk_label, #proc_label {
-        width: 100%;
-        margin: 0 1;
+    Screen {
+        background: ansi_black;
+        color: ansi_bright_green;
     }
 
-    ProgressBar {
-        width: 100%;
-        content-align: center middle;
-        margin: 0 1;
+    Header {
+        background: ansi_black;
+        color: ansi_bright_green;
+        text-style: bold;
     }
 
-    ProgressBar > Bar {
-        width: 1fr;
+    Footer {
+        background: ansi_black;
+        color: ansi_green;
+    }
+
+    Footer > .footer--key {
+        background: ansi_black;
+        color: ansi_bright_green;
+        text-style: bold;
+    }
+
+    Footer > .footer--description {
+        background: ansi_black;
+        color: ansi_green;
+    }
+
+    #status_line, #cpu_line, #cores_line, #history_label, #mem_line,
+    #net_line, #disk_line, #proc_label {
+        width: 100%;
+        margin: 0 1;
     }
 
     #cpu_history {
         width: 100%;
         margin: 0 1;
+        color: ansi_bright_green;
     }
 
-    #disk_table, #proc_table {
+    #proc_table {
         width: 100%;
         margin: 0 1;
+        background: ansi_black;
     }
     """
     BINDINGS = [("q", "quit", "Quit")]
@@ -76,34 +108,26 @@ class MonitorApp(App):
         self.host = host
         self.port = port
         self.interval = interval
-        self._cpu_history = deque(maxlen=50)
+        self._cpu_history = deque(maxlen=40)
 
     def compose(self) -> ComposeResult:
         yield Header()
-        yield Static("Connecting...", id="status")
-        yield Static("", id="host_info")
-        yield Static("CPU", id="cpu_label")
-        yield ProgressBar(total=100, id="cpu_bar", show_eta=False)
-        yield Static("", id="cpu_cores")
-        yield Static("CPU history", id="cpu_history_label")
+        yield Static("", id="status_line")
+        yield Static("", id="cpu_line")
+        yield Static("", id="cores_line")
         yield Sparkline([], id="cpu_history", summary_function=max)
-        yield Static("Memory", id="mem_label")
-        yield ProgressBar(total=100, id="mem_bar", show_eta=False)
-        yield Static("Swap", id="swap_label")
-        yield ProgressBar(total=100, id="swap_bar", show_eta=False)
-        yield Static("Network", id="net_label")
-        yield Static("Disks", id="disk_label")
-        yield DataTable(id="disk_table")
-        yield Static("Top Processes", id="proc_label")
+        yield Static("", id="mem_line")
+        yield Static("", id="net_line")
+        yield Static("", id="disk_line")
+        yield Static(r"[bold bright_cyan]══\[ PROCESSES ]══[/]", id="proc_label")
         yield DataTable(id="proc_table")
         yield Footer()
 
     def on_mount(self) -> None:
-        disk_table = self.query_one("#disk_table", DataTable)
-        disk_table.add_columns("Mount", "Used %", "Used", "Total")
+        self.title = "root@monitor"
 
         proc_table = self.query_one("#proc_table", DataTable)
-        proc_table.add_columns("PID", "Name", "CPU%", "Mem%")
+        proc_table.add_columns("PID", "NAME", "CPU%")
         proc_table.styles.height = "1fr"
 
         self.set_interval(self.interval, self.refresh_stats)
@@ -116,65 +140,64 @@ class MonitorApp(App):
             resp.raise_for_status()
             data = resp.json()
         except Exception as exc:
-            self.query_one("#status", Static).update(f"[red]Connection error: {exc}[/red]")
+            self.query_one("#status_line", Static).update(
+                f"[bold red]░░ OFFLINE ░░[/]  {exc}"
+            )
             return
 
-        self.query_one("#status", Static).update(f"[green]Connected to {self.host}:{self.port}[/green]")
-
-        host = data.get("host")
-        if host:
-            load = host.get("load_avg")
-            load_str = " ".join(f"{x:.2f}" for x in load) if load else "N/A"
-            self.query_one("#host_info", Static).update(
-                f"{host['hostname'][:20]} • up {_fmt_uptime(host['uptime_s'])} • load {load_str}"
-            )
+        host = data.get("host") or {}
+        load = host.get("load_avg")
+        load_str = "/".join(f"{x:.1f}" for x in load) if load else "N/A"
+        hostname = (host.get("hostname") or self.host)[:14]
+        uptime = _fmt_uptime(host["uptime_s"]) if host.get("uptime_s") is not None else "?"
+        self.query_one("#status_line", Static).update(
+            f"[bold bright_green]●[/] root@{hostname} up {uptime} load {load_str}"
+        )
 
         cpu = data["cpu"]
         temp = f"{cpu['temp_c']:.1f}C" if cpu.get("temp_c") is not None else "N/A"
-        self.query_one("#cpu_label", Static).update(f"CPU: {cpu['percent']:.1f}%  Temp: {temp}")
-        self.query_one("#cpu_bar", ProgressBar).update(progress=cpu["percent"])
+        cpu_color = _threshold_color(cpu["percent"])
+        self.query_one("#cpu_line", Static).update(
+            f"[bold bright_cyan]CPU[/] [{cpu_color}]{_ascii_bar(cpu['percent'])}[/] "
+            f"[{cpu_color}]{cpu['percent']:5.1f}%[/]  {temp}"
+        )
 
         per_cpu = cpu.get("per_cpu") or []
-        self.query_one("#cpu_cores", Static).update("Cores: " + _cpu_core_bars(per_cpu))
+        self.query_one("#cores_line", Static).update(
+            "[bold bright_cyan]CORES[/] [bright_green]" + _cpu_core_bars(per_cpu) + "[/]"
+        )
 
         self._cpu_history.append(cpu["percent"])
         self.query_one("#cpu_history", Sparkline).data = list(self._cpu_history)
 
         mem = data["memory"]
-        self.query_one("#mem_label", Static).update(
-            f"Memory: {_fmt_bytes(mem['used'])} / {_fmt_bytes(mem['total'])} ({mem['percent']:.1f}%)"
-        )
-        self.query_one("#mem_bar", ProgressBar).update(progress=mem["percent"])
-
         swap = data["swap"]
-        self.query_one("#swap_label", Static).update(
-            f"Swap: {_fmt_bytes(swap['used'])} / {_fmt_bytes(swap['total'])} ({swap['percent']:.1f}%)"
+        mem_color = _threshold_color(mem["percent"])
+        self.query_one("#mem_line", Static).update(
+            f"[bold bright_cyan]MEM[/] [{mem_color}]{_ascii_bar(mem['percent'], 10)}[/] "
+            f"{mem['percent']:4.1f}%  {_fmt_bytes(mem['used'])}/{_fmt_bytes(mem['total'])}  "
+            f"SWAP {swap['percent']:.0f}%"
         )
-        self.query_one("#swap_bar", ProgressBar).update(progress=swap["percent"])
 
         net = data["network"]
-        self.query_one("#net_label", Static).update(
-            f"Network: up {_fmt_rate(net['sent_bps'])}  down {_fmt_rate(net['recv_bps'])}"
+        self.query_one("#net_line", Static).update(
+            f"[bold bright_cyan]NET[/] [bright_green]↑{_fmt_rate(net['sent_bps'])}"
+            f"  ↓{_fmt_rate(net['recv_bps'])}[/]"
         )
 
-        disk_table = self.query_one("#disk_table", DataTable)
-        disk_table.clear()
-        for disk in data["disks"]:
-            disk_table.add_row(
-                disk["mountpoint"],
-                f"{disk['percent']:.1f}%",
-                _fmt_bytes(disk["used"]),
-                _fmt_bytes(disk["total"]),
-            )
+        disks = data.get("disks", [])
+        disk_str = "  ".join(
+            f"{d['mountpoint']} [{_threshold_color(d['percent'])}]{d['percent']:.0f}%[/]" for d in disks
+        )
+        self.query_one("#disk_line", Static).update(f"[bold bright_cyan]DISK[/] {disk_str}")
 
         proc_table = self.query_one("#proc_table", DataTable)
         proc_table.clear()
         for proc in data.get("processes", []):
             proc_table.add_row(
                 str(proc["pid"]),
-                proc["name"][:20],
+                proc["name"][:24],
                 f"{proc['cpu_percent']:.1f}",
-                f"{proc['memory_percent']:.1f}",
             )
 
 
