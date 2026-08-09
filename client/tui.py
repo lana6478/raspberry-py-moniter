@@ -27,7 +27,34 @@ def _fmt_rate(bps):
 
 class MonitorApp(App):
     CSS = """
-    Vertical > Static { margin: 1 2; }
+    #status {
+        width: 100%;
+        content-align: center middle;
+    }
+
+    Vertical {
+        width: 100%;
+        height: 1fr;
+    }
+
+    Vertical > Static {
+        width: 100%;
+        margin: 0 1;
+    }
+
+    ProgressBar {
+        width: 100%;
+        content-align: center middle;
+    }
+
+    ProgressBar > Bar {
+        width: 1fr;
+    }
+
+    DataTable {
+        width: 100%;
+        height: 1fr;
+    }
     """
     BINDINGS = [("q", "quit", "Quit")]
 
