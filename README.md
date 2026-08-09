@@ -48,6 +48,25 @@ python -m client.tui --host <your-computer-ip> --port 8000
 Press `q` to quit. Use `--interval` to change the refresh rate in seconds
 (default: 2).
 
+## Optional: run the server automatically with systemd
+
+Instead of starting the server by hand every time, install it as a systemd
+service so it starts on boot and restarts if it crashes:
+
+```bash
+cp deploy/raspi-monitor-server.service ~/raspi-monitor-server.service
+# Edit ~/raspi-monitor-server.service first if your username or the repo
+# path differ from what's in deploy/raspi-monitor-server.service.
+sudo cp ~/raspi-monitor-server.service /etc/systemd/system/raspi-monitor-server.service
+sudo systemctl daemon-reload
+sudo systemctl enable --now raspi-monitor-server.service
+systemctl status raspi-monitor-server.service --no-pager
+```
+
+Manage it afterwards with `sudo systemctl stop/start/restart
+raspi-monitor-server.service` and view logs with `journalctl -u
+raspi-monitor-server.service -f`.
+
 ## Notes
 
 - Traffic between the server and client is plain HTTP with no

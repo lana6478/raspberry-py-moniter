@@ -1,0 +1,14 @@
+[Unit]
+Description=Raspberry Pi monitor stats server
+After=network.target
+
+[Service]
+Type=simple
+User=samuel
+WorkingDirectory=/home/samuel/Documents/projects from github/raspberry-py-moniter
+ExecStart="/home/samuel/Documents/projects from github/raspberry-py-moniter/.venv/bin/python" -m server.server --port 8000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
