@@ -43,10 +43,10 @@ def _cpu_core_bars(per_cpu):
 
 def _threshold_color(percent):
     if percent >= 85:
-        return "bold red"
+        return "bold bright_green"
     if percent >= 60:
-        return "yellow"
-    return "bright_green"
+        return "bright_green"
+    return "green"
 
 
 def _ascii_bar(percent, width=18):
@@ -72,15 +72,19 @@ class MonitorApp(App):
         color: ansi_green;
     }
 
-    Footer > .footer--key {
+    FooterKey {
         background: ansi_black;
+    }
+
+    FooterKey .footer-key--key {
         color: ansi_bright_green;
+        background: ansi_black;
         text-style: bold;
     }
 
-    Footer > .footer--description {
-        background: ansi_black;
+    FooterKey .footer-key--description {
         color: ansi_green;
+        background: ansi_black;
     }
 
     #status_line, #cpu_line, #cores_line, #history_label, #mem_line,
@@ -95,9 +99,33 @@ class MonitorApp(App):
         color: ansi_bright_green;
     }
 
+    Sparkline > .sparkline--max-color {
+        color: ansi_bright_green;
+    }
+
+    Sparkline > .sparkline--min-color {
+        color: ansi_green;
+    }
+
     #proc_table {
         width: 100%;
         margin: 0 1;
+        background: ansi_black;
+        color: ansi_bright_green;
+    }
+
+    #proc_table > .datatable--header {
+        background: ansi_black;
+        color: ansi_bright_green;
+        text-style: bold;
+    }
+
+    #proc_table > .datatable--cursor {
+        background: ansi_green;
+        color: ansi_black;
+    }
+
+    #proc_table > .datatable--even-row {
         background: ansi_black;
     }
     """
@@ -119,7 +147,7 @@ class MonitorApp(App):
         yield Static("", id="mem_line")
         yield Static("", id="net_line")
         yield Static("", id="disk_line")
-        yield Static(r"[bold bright_cyan]══\[ PROCESSES ]══[/]", id="proc_label")
+        yield Static(r"[bold bright_green]══\[ PROCESSES ]══[/]", id="proc_label")
         yield DataTable(id="proc_table")
         yield Footer()
 
@@ -128,7 +156,6 @@ class MonitorApp(App):
 
         proc_table = self.query_one("#proc_table", DataTable)
         proc_table.add_columns("PID", "NAME", "CPU%")
-        proc_table.styles.height = "1fr"
 
         self.set_interval(self.interval, self.refresh_stats)
         self.refresh_stats()
@@ -141,7 +168,7 @@ class MonitorApp(App):
             data = resp.json()
         except Exception as exc:
             self.query_one("#status_line", Static).update(
-                f"[bold red]░░ OFFLINE ░░[/]  {exc}"
+                f"[bold bright_green]░░ OFFLINE ░░[/]  {exc}"
             )
             return
 
@@ -158,13 +185,13 @@ class MonitorApp(App):
         temp = f"{cpu['temp_c']:.1f}C" if cpu.get("temp_c") is not None else "N/A"
         cpu_color = _threshold_color(cpu["percent"])
         self.query_one("#cpu_line", Static).update(
-            f"[bold bright_cyan]CPU[/] [{cpu_color}]{_ascii_bar(cpu['percent'])}[/] "
+            f"[bold bright_green]CPU[/] [{cpu_color}]{_ascii_bar(cpu['percent'])}[/] "
             f"[{cpu_color}]{cpu['percent']:5.1f}%[/]  {temp}"
         )
 
         per_cpu = cpu.get("per_cpu") or []
         self.query_one("#cores_line", Static).update(
-            "[bold bright_cyan]CORES[/] [bright_green]" + _cpu_core_bars(per_cpu) + "[/]"
+            "[bold bright_green]CORES[/] [bright_green]" + _cpu_core_bars(per_cpu) + "[/]"
         )
 
         self._cpu_history.append(cpu["percent"])
@@ -174,14 +201,14 @@ class MonitorApp(App):
         swap = data["swap"]
         mem_color = _threshold_color(mem["percent"])
         self.query_one("#mem_line", Static).update(
-            f"[bold bright_cyan]MEM[/] [{mem_color}]{_ascii_bar(mem['percent'], 10)}[/] "
+            f"[bold bright_green]MEM[/] [{mem_color}]{_ascii_bar(mem['percent'], 10)}[/] "
             f"{mem['percent']:4.1f}%  {_fmt_bytes(mem['used'])}/{_fmt_bytes(mem['total'])}  "
             f"SWAP {swap['percent']:.0f}%"
         )
 
         net = data["network"]
         self.query_one("#net_line", Static).update(
-            f"[bold bright_cyan]NET[/] [bright_green]↑{_fmt_rate(net['sent_bps'])}"
+            f"[bold bright_green]NET[/] [bright_green]↑{_fmt_rate(net['sent_bps'])}"
             f"  ↓{_fmt_rate(net['recv_bps'])}[/]"
         )
 
@@ -189,11 +216,11 @@ class MonitorApp(App):
         disk_str = "  ".join(
             f"{d['mountpoint']} [{_threshold_color(d['percent'])}]{d['percent']:.0f}%[/]" for d in disks
         )
-        self.query_one("#disk_line", Static).update(f"[bold bright_cyan]DISK[/] {disk_str}")
+        self.query_one("#disk_line", Static).update(f"[bold bright_green]DISK[/] {disk_str}")
 
         proc_table = self.query_one("#proc_table", DataTable)
         proc_table.clear()
-        for proc in data.get("processes", []):
+        for proc in data.get("processes", [])[:6]:
             proc_table.add_row(
                 str(proc["pid"]),
                 proc["name"][:24],
