@@ -1,5 +1,7 @@
 """Collects system metrics from the host machine using psutil."""
 
+import os
+import socket
 import time
 
 import psutil
@@ -37,6 +39,37 @@ def _network_rates():
     _last_net = counters
     _last_net_time = now
     return rates
+
+
+def _host_info():
+    try:
+        load_avg = list(os.getloadavg())
+    except (AttributeError, OSError):
+        load_avg = None
+    return {
+        "hostname": socket.gethostname(),
+        "uptime_s": time.time() - psutil.boot_time(),
+        "load_avg": load_avg,
+    }
+
+
+def _top_processes(limit=15):
+    procs = []
+    for proc in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]):
+        try:
+            info = proc.info
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+        procs.append(
+            {
+                "pid": info["pid"],
+                "name": info["name"] or "",
+                "cpu_percent": info["cpu_percent"] or 0.0,
+                "memory_percent": info["memory_percent"] or 0.0,
+            }
+        )
+    procs.sort(key=lambda p: p["cpu_percent"], reverse=True)
+    return procs[:limit]
 
 
 def collect_stats():
@@ -79,4 +112,6 @@ def collect_stats():
         },
         "disks": disks,
         "network": _network_rates(),
+        "host": _host_info(),
+        "processes": _top_processes(),
     }
