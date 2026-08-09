@@ -7,8 +7,8 @@ Conflicts=getty@tty1.service
 [Service]
 Type=simple
 User=samuel
-WorkingDirectory=%h/raspberry-py-moniter
-ExecStart=%h/raspberry-py-moniter/.venv/bin/python -m client.tui --host 192.168.1.120 --port 8000
+WorkingDirectory=/home/samuel/raspberry-py-moniter
+ExecStart=/home/samuel/raspberry-py-moniter/.venv/bin/python -m client.tui --host 192.168.1.120 --port 8000
 Restart=always
 RestartSec=3
 StandardInput=tty
