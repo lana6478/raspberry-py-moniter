@@ -41,7 +41,7 @@ class MonitorApp(App):
         width: 1fr;
     }
 
-    DataTable {
+    #disk_table {
         width: 100%;
         height: 1fr;
         margin: 0 1;
@@ -70,6 +70,7 @@ class MonitorApp(App):
 
     def on_mount(self) -> None:
         table = self.query_one("#disk_table", DataTable)
+        table.styles.height = "1fr"
         table.add_columns("Mount", "Used %", "Used", "Total")
         self.set_interval(self.interval, self.refresh_stats)
         self.refresh_stats()
