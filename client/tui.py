@@ -9,7 +9,6 @@ import argparse
 
 import requests
 from textual.app import App, ComposeResult
-from textual.containers import Vertical
 from textual.widgets import DataTable, Footer, Header, ProgressBar, Static
 
 
@@ -27,17 +26,7 @@ def _fmt_rate(bps):
 
 class MonitorApp(App):
     CSS = """
-    #status {
-        width: 100%;
-        content-align: center middle;
-    }
-
-    Vertical {
-        width: 100%;
-        height: 1fr;
-    }
-
-    Vertical > Static {
+    #status, #cpu_label, #mem_label, #swap_label, #net_label {
         width: 100%;
         margin: 0 1;
     }
@@ -45,6 +34,7 @@ class MonitorApp(App):
     ProgressBar {
         width: 100%;
         content-align: center middle;
+        margin: 0 1;
     }
 
     ProgressBar > Bar {
@@ -54,6 +44,7 @@ class MonitorApp(App):
     DataTable {
         width: 100%;
         height: 1fr;
+        margin: 0 1;
     }
     """
     BINDINGS = [("q", "quit", "Quit")]
@@ -67,15 +58,14 @@ class MonitorApp(App):
     def compose(self) -> ComposeResult:
         yield Header()
         yield Static("Connecting...", id="status")
-        with Vertical():
-            yield Static("CPU", id="cpu_label")
-            yield ProgressBar(total=100, id="cpu_bar", show_eta=False)
-            yield Static("Memory", id="mem_label")
-            yield ProgressBar(total=100, id="mem_bar", show_eta=False)
-            yield Static("Swap", id="swap_label")
-            yield ProgressBar(total=100, id="swap_bar", show_eta=False)
-            yield Static("Network", id="net_label")
-            yield DataTable(id="disk_table")
+        yield Static("CPU", id="cpu_label")
+        yield ProgressBar(total=100, id="cpu_bar", show_eta=False)
+        yield Static("Memory", id="mem_label")
+        yield ProgressBar(total=100, id="mem_bar", show_eta=False)
+        yield Static("Swap", id="swap_label")
+        yield ProgressBar(total=100, id="swap_bar", show_eta=False)
+        yield Static("Network", id="net_label")
+        yield DataTable(id="disk_table")
         yield Footer()
 
     def on_mount(self) -> None:
